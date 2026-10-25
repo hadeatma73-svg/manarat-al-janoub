@@ -1,0 +1,6 @@
+{
+  "appId": "com.manarat.aljanoub",
+  "appName": "منارات الجنوب",
+  "webDir": "www",
+  "server": { "androidScheme": "https" }
+}

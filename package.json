@@ -1,0 +1,12 @@
+{
+  "name": "manarat-al-janoub",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Manarat Al Janoub shop management (web + Android app via Capacitor)",
+  "dependencies": {
+    "@capacitor/android": "6.2.0",
+    "@capacitor/cli": "6.2.0",
+    "@capacitor/core": "6.2.0",
+    "@supabase/supabase-js": "2.45.4"
+  }
+}

@@ -1,0 +1,49 @@
+name: Build Android APK
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Prepare web assets (bundle supabase-js so the app also starts offline)
+        run: |
+          npm install
+          mkdir -p www
+          cp index.html sw.js manifest.webmanifest icon-192.png icon-512.png www/
+          cp node_modules/@supabase/supabase-js/dist/umd/supabase.js www/supabase.js
+          sed -i "s#https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js#supabase.js#" www/index.html
+          grep -q "src='supabase.js'" www/index.html
+      - name: Create Android project
+        run: |
+          npx cap add android
+          for d in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
+            n=${d%%:*}; s=${d##*:}
+            for f in ic_launcher ic_launcher_round ic_launcher_foreground; do
+              convert icon-512.png -resize ${s}x${s} android/app/src/main/res/mipmap-$n/$f.png
+            done
+          done
+          rm -rf android/app/src/main/res/mipmap-anydpi-v26
+          npx cap sync android
+      - name: Build debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - name: Publish APK as a release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: apk-${{ github.run_number }}
+          name: APK build ${{ github.run_number }}
+          files: android/app/build/outputs/apk/debug/app-debug.apk

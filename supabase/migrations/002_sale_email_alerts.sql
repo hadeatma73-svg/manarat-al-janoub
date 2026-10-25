@@ -1,0 +1,5 @@
+-- Sale email alerts. Requires: extension pg_net, and a Vault secret named 'resend_api_key' (create it yourself, never commit it):
+--   select vault.create_secret('re_xxx', 'resend_api_key');
+-- build_sale_email(old, new) returns {subject, html} for sales that are new in `new`, or null (nothing new / voided / older than yesterday / more than 5 at once).
+-- notify_new_sales() posts it to Resend when shop_state.data changes and notify_email is set. It never blocks saving (errors are swallowed).
+-- Full function bodies: see the Supabase project migration 'sale_email_alerts'.
