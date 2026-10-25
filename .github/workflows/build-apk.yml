@@ -7,7 +7,7 @@ permissions:
   contents: write
 jobs:
   apk:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -28,10 +28,12 @@ jobs:
       - name: Create Android project
         run: |
           npx cap add android
+          sudo apt-get update -y && sudo apt-get install -y imagemagick
+          M=$(command -v magick || command -v convert)
           for d in mdpi:48 hdpi:72 xhdpi:96 xxhdpi:144 xxxhdpi:192; do
             n=${d%%:*}; s=${d##*:}
             for f in ic_launcher ic_launcher_round ic_launcher_foreground; do
-              convert icon-512.png -resize ${s}x${s} android/app/src/main/res/mipmap-$n/$f.png
+              $M icon-512.png -resize ${s}x${s} android/app/src/main/res/mipmap-$n/$f.png
             done
           done
           rm -rf android/app/src/main/res/mipmap-anydpi-v26
