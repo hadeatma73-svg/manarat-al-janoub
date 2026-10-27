@@ -1,0 +1,11 @@
+-- Mail system v2 (already applied to the Supabase project).
+-- shop_state gets: tz, daily_on, weekly_on, last_daily, last_weekly.
+-- mail_queue: sales are queued by a trigger and sent in batches by the `shop-mail` edge function (cron, every minute),
+--   which avoids Resend's rate limit and the old "more than 5 sales at once -> no e-mail" problem.
+-- Secrets (never commit): vault secrets `resend_api_key` and `cron_key`; the cron job calls the function with header x-cron-key.
+-- Function source: supabase/functions/shop-mail/{index.ts,report.ts}
+-- Cron job (run once, replace <PROJECT_REF>):
+--   select cron.schedule('shop-mail-tick','* * * * *', $$ select net.http_post(
+--     url := 'https://<PROJECT_REF>.supabase.co/functions/v1/shop-mail',
+--     headers := jsonb_build_object('Content-Type','application/json','x-cron-key',(select decrypted_secret from vault.decrypted_secrets where name='cron_key')),
+--     body := '{"action":"tick"}'::jsonb, timeout_milliseconds := 50000) $$);
