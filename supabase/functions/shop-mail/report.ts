@@ -38,7 +38,7 @@ export function receivables(D) {
 
 export function summarize(D, from, to) {
   const inR = (d) => d >= from && d <= to;
-  const o = { n: 0, rev: 0, cost: 0, exp: 0, comm: 0, col: 0, byM: { cash: 0, card: 0 }, debtColl: 0, creditNew: 0, sales: [], voids: [], items: {}, emp: {}, cat: {}, days: {}, expList: [], puList: [], puTot: 0, advList: [], advTot: 0, absent: [], below: {}, zeroCost: false };
+  const o = { n: 0, rev: 0, cost: 0, exp: 0, col: 0, byM: { cash: 0, card: 0 }, debtColl: 0, creditNew: 0, sales: [], voids: [], items: {}, emp: {}, cat: {}, days: {}, expList: [], puList: [], puTot: 0, advList: [], advTot: 0, absent: [], below: {}, zeroCost: false };
   for (let d = from; d <= to; d = addDays(d, 1)) o.days[d] = { n: 0, rev: 0, cost: 0, exp: 0 };
   for (const s of D.sales || []) {
     if (s.st == 'void') { if (inR(s.d)) o.voids.push(s); continue; }
@@ -58,10 +58,8 @@ export function summarize(D, from, to) {
       if (!(+i.c > 0) && i.t !== 'o') o.zeroCost = true;
     }
     o.cost += cst;
-    const e = (o.emp[s.e || '—'] = o.emp[s.e || '—'] || { n: 0, v: 0, comm: 0 });
+    const e = (o.emp[s.e || '—'] = o.emp[s.e || '—'] || { n: 0, v: 0 });
     e.n++; e.v += X;
-    const em = (D.emp || []).find((x) => x.n == s.e);
-    if (em && em.p) { const c = (X * em.p) / 100; e.comm += c; o.comm += c; }
     const dd = o.days[s.d]; dd.n++; dd.rev += X; dd.cost += cst;
     o.creditNew += Math.max(0, X - (s.pays || []).filter((p) => p.d == s.d).reduce((a, p) => a + (+p.a || 0), 0));
   }
@@ -70,7 +68,7 @@ export function summarize(D, from, to) {
   for (const x of D.pu || []) if (inR(x.d)) { o.puTot += +x.a || 0; o.puList.push(x); }
   for (const x of D.adv || []) if (inR(x.d)) { o.advTot += +x.a || 0; o.advList.push(x); }
   for (const a of D.att || []) if (inR(a.d) && a.s == 'a') o.absent.push(a);
-  o.gp = o.rev - o.cost; o.net = o.gp - o.exp; o.netAfter = o.net - o.comm;
+  o.gp = o.rev - o.cost; o.net = o.gp - o.exp;
   return o;
 }
 
@@ -88,7 +86,6 @@ export function alertsFor(D, sm, ctx, kind) {
   const a = [];
   const label = kind == 'weekly' ? 'الأسبوع' : 'اليوم';
   if (sm.net < 0) a.push(['bad', `خسارة ${label}: ${fmt(-sm.net)} ${ctx.cur}`]);
-  else if (sm.rev > 0 && sm.netAfter < 0) a.push(['warn', `الربح لا يغطي عمولات الموظفين (الصافي بعد العمولات ${fmt(sm.netAfter)} ${ctx.cur})`]);
   if (sm.exp > sm.rev && sm.exp > 0) a.push(['warn', `المصروفات (${fmt(sm.exp)}) أعلى من المبيعات (${fmt(sm.rev)})`]);
   if (sm.n == 0) a.push(['warn', `لا توجد أي مبيعات ${label}`]);
   for (const n of Object.keys(sm.below)) a.push(['bad', `بيع بسعر أقل من التكلفة: ${esc(n)}`]);
@@ -163,7 +160,6 @@ export function dailyReport(D, date, ctx0) {
     sec('📊 ملخص اليوم', kv([
       ['عدد الفواتير', sm.n], ['إجمالي المبيعات', fmt(sm.rev) + ' ' + esc(ctx.cur), C.ink, true], ['تكلفة البضاعة المباعة', fmt(sm.cost)], ['مجمل الربح', fmt(sm.gp), sm.gp < 0 ? C.bad : C.ok],
       ['المصروفات', fmt(sm.exp)], [sm.net < 0 ? 'الخسارة' : 'صافي الربح', fmt(sm.net), sm.net < 0 ? C.bad : C.ok, true],
-      ['عمولات الموظفين المستحقة', fmt(sm.comm)], ['الصافي بعد العمولات', fmt(sm.netAfter), sm.netAfter < 0 ? C.bad : C.ok],
       ['المحصّل الكامل اليوم', fmt(sm.col) + ' ' + esc(ctx.cur), C.ink, true], ['— نقدي', fmt(sm.byM.cash || 0)], ['— بطاقة', fmt(sm.byM.card || 0)], ['— تسديد ديون قديمة', fmt(sm.debtColl)],
     ])) +
     sec('🛒 كل ما انباع اليوم (مجمّع حسب الصنف)', itemsTable(sm, ctx.cur)) +
@@ -189,7 +185,7 @@ export function weeklyReport(D, date, ctx0) {
   const rc = receivables(D);
   const pc = (a, b) => (b ? `${a >= b ? '▲' : '▼'} ${Math.abs(Math.round(((a - b) / Math.abs(b)) * 100))}%` : '—');
   const days = Object.entries(sm.days).map(([d, x]) => [`${d} <span style="color:${C.mut}">${WD[dow(d)]}</span>`, x.n, fmt(x.rev), fmt(x.exp), `<span style="color:${x.rev - x.cost - x.exp < 0 ? C.bad : C.ok}">${fmt(x.rev - x.cost - x.exp)}</span>`]);
-  const emps = Object.entries(sm.emp).sort((a, b) => b[1].v - a[1].v).map(([n, x]) => [esc(n), x.n, fmt(x.v), fmt(x.comm)]);
+  const emps = Object.entries(sm.emp).sort((a, b) => b[1].v - a[1].v).map(([n, x]) => [esc(n), x.n, fmt(x.v)]);
   const cats = Object.entries(sm.cat).sort((a, b) => b[1] - a[1]).map(([n, v]) => [esc(n), fmt(v)]);
   const html = wrap(
     head(`جرد الأسبوع ${from} → ${date}`, ctx.shop) +
@@ -199,14 +195,13 @@ export function weeklyReport(D, date, ctx0) {
     sec('📊 ملخص الأسبوع', kv([
       ['إجمالي المبيعات', fmt(sm.rev) + ' ' + esc(ctx.cur), C.ink, true], ['عدد الفواتير', sm.n], ['تكلفة البضاعة المباعة', fmt(sm.cost)], ['مجمل الربح', fmt(sm.gp), sm.gp < 0 ? C.bad : C.ok],
       ['المصروفات', fmt(sm.exp)], [sm.net < 0 ? 'الخسارة' : 'صافي الربح', fmt(sm.net), sm.net < 0 ? C.bad : C.ok, true],
-      ['عمولات الموظفين', fmt(sm.comm)], ['الصافي بعد العمولات', fmt(sm.netAfter), sm.netAfter < 0 ? C.bad : C.ok],
       ['المحصّل الكامل (نقدي + بطاقة + ديون)', fmt(sm.col) + ' ' + esc(ctx.cur), C.ink, true], ['— نقدي', fmt(sm.byM.cash || 0)], ['— بطاقة', fmt(sm.byM.card || 0)],
       ['مشتريات من الموردين', fmt(sm.puTot)], ['سلف الموظفين', fmt(sm.advTot)],
     ])) +
     sec('📈 مقارنة بالأسبوع السابق', kv([['المبيعات', `${fmt(pv.rev)} ← ${fmt(sm.rev)} (${pc(sm.rev, pv.rev)})`], ['صافي الربح', `${fmt(pv.net)} ← ${fmt(sm.net)} (${pc(sm.net, pv.net)})`], ['المصروفات', `${fmt(pv.exp)} ← ${fmt(sm.exp)} (${pc(sm.exp, pv.exp)})`]])) +
     sec('📅 يوماً بيوم', tbl(['اليوم', 'فواتير', 'المبيعات', 'المصروفات', 'الصافي'], days)) +
     sec('🛒 الأصناف المباعة خلال الأسبوع', itemsTable(sm, ctx.cur)) +
-    (emps.length ? sec('👷 أداء الموظفين', tbl(['الموظف', 'فواتير', 'المبيعات', 'العمولة'], emps)) : '') +
+    (emps.length ? sec('👷 أداء الموظفين', tbl(['الموظف', 'فواتير', 'المبيعات'], emps)) : '') +
     (cats.length ? sec('💸 المصروفات حسب الفئة', tbl(['الفئة', 'المبلغ'], cats, ['المجموع', fmt(sm.exp)])) : '') +
     sec('💰 الديون', debtBlock(D, sm, ctx)) +
     footer(ctx) + '</div>'
